@@ -188,7 +188,7 @@
 
       <main class="gra" id="gra">
         <div class="okladka-ramka">
-          <img class="okladka" id="okladka" alt="" crossorigin="anonymous" style="display: none" />
+          <img class="okladka" id="okladka" alt="" style="display: none" />
           <div class="okladka-pusta" id="okladka-pusta" style="display: flex">
             <svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" /></svg>
           </div>
@@ -275,8 +275,18 @@
         img.src = url;
       }
 
-      // Kolor przewodni z okładki (gdy serwer obrazów pozwala czytać piksele)
-      function kolorZOkladki(img) {
+      // Kolor przewodni z okładki. Sama okładka ładuje się bez CORS (wiele serwerów obrazów,
+      // np. theaudiodb, nie wysyła Access-Control-Allow-Origin i <img crossorigin> wtedy w ogóle
+      // się nie wyświetla), a piksele czytamy z osobnej kopii z crossOrigin; gdy serwer nie
+      // pozwala, poświata zostaje biała.
+      function kolorZOkladki(url) {
+        document.documentElement.style.setProperty("--akcent", "255, 255, 255");
+        var img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = function () { if ($("okladka").getAttribute("src") === url) policzKolor(img); };
+        img.src = url;
+      }
+      function policzKolor(img) {
         try {
           var c = document.createElement("canvas");
           c.width = 24; c.height = 24;
@@ -299,7 +309,12 @@
           document.documentElement.style.setProperty("--akcent", "255, 255, 255");
         }
       }
-      $("okladka").addEventListener("load", function () { kolorZOkladki(this); });
+      $("okladka").addEventListener("load", function () { kolorZOkladki(this.getAttribute("src")); });
+      $("okladka").addEventListener("error", function () {
+        // Okładka nie przyszła: zamiast pustej ramki symbol nuty
+        $("okladka").style.display = "none";
+        $("okladka-pusta").style.display = "flex";
+      });
 
       // Tłumaczenie komunikatów stanu ze skryptu Sendspin
       var STANY = [
@@ -308,7 +323,8 @@
         [/connected/i, "Połączono"],
         [/waiting/i, "Czekam na muzykę"],
         [/disconnected|connection lost/i, "Rozłączono, łączę ponownie"],
-        [/error|failed/i, "Kłopot z połączeniem"]
+        [/error|failed/i, "Kłopot z połączeniem"],
+        [/^(playing|paused)$/i, ""]
       ];
       window.setStatus = function (tekst) {
         var t = String(tekst || "");
